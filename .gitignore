@@ -1,0 +1,11 @@
+# Local state and generated binaries
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+/api-server
+/api-server.exe
+/bin/
+/coverage.out
+/.env
+node_modules/

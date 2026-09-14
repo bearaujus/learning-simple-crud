@@ -1,0 +1,692 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CRUD lab — Products API",
+    "version": "2.0.0",
+    "description": "A local learning API with SQLite persistence. No authentication. Success bodies use data; list responses include meta; errors use error. DELETE returns 204 with no body. All responses include X-Request-ID. See /docs for examples. Version 2 changes the original response format."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "The server serving this document"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Products",
+      "description": "Create, read, replace, partially update, and delete products."
+    },
+    {
+      "name": "Health"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getHealth",
+        "summary": "Check database connectivity",
+        "responses": {
+          "200": {
+            "description": "Available.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "status"
+                      ],
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "ok"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "listProducts",
+        "summary": "List, search, and paginate products",
+        "description": "Only the documented query parameters are accepted; duplicates are rejected. Default order is ID ascending; tied names/prices use ID ascending. Search matches literal substrings of name and description, ignoring ASCII case. An empty or out-of-range page returns data: [].",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": ""
+            },
+            "description": "Trimmed literal substring search."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "name",
+                "price"
+              ],
+              "default": "id"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "asc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product list and pagination metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "createProduct",
+        "summary": "Create a product",
+        "description": "name and price are required. The server assigns id. Maximum JSON body size: 64 KiB.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "description": "Relative URL of the new product.",
+                "schema": {
+                  "type": "string"
+                },
+                "example": "/products/1"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/products/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "A positive product ID returned by the API.",
+          "schema": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "getProduct",
+        "summary": "Read a product",
+        "responses": {
+          "200": {
+            "description": "Product returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "replaceProduct",
+        "summary": "Replace an existing product",
+        "description": "name and price are required. Omitting description resets it to an empty string. This API does not create a missing product via PUT.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "patchProduct",
+        "summary": "Change selected fields",
+        "description": "Send at least one writable field. Omitted fields keep their values. Zero and empty descriptions are accepted; null is rejected. This is a partial JSON object, not JSON Patch or JSON Merge Patch. Maximum JSON body size: 64 KiB.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "deleteProduct",
+        "summary": "Delete a product",
+        "responses": {
+          "204": {
+            "description": "Deleted. No response body; do not call response.json()."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Product": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "price",
+          "description"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "readOnly": true,
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Trimmed before validation.",
+            "example": "Notebook"
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000,
+            "multipleOf": 0.01,
+            "example": 4.5
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "default": "",
+            "description": "Trimmed. Omitted POST/PUT descriptions become an empty string.",
+            "example": "A dotted notebook."
+          }
+        }
+      },
+      "ProductWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "price"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Trimmed before validation.",
+            "example": "Notebook"
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000,
+            "multipleOf": 0.01,
+            "example": 4.5
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "default": "",
+            "description": "Trimmed. Omitted POST/PUT descriptions become an empty string.",
+            "example": "A dotted notebook."
+          }
+        }
+      },
+      "ProductPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Trimmed before validation.",
+            "example": "Notebook"
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000,
+            "multipleOf": 0.01,
+            "example": 4.5
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "default": "",
+            "description": "Omit to preserve; send an empty string to clear.",
+            "example": "A dotted notebook."
+          }
+        }
+      },
+      "ProductResponse": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Product"
+          }
+        }
+      },
+      "ProductListResponse": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Product"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "required": [
+          "page",
+          "limit",
+          "total",
+          "total_pages"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "example": 10
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 6
+          },
+          "total_pages": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 1
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "request_id"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Stable machine-readable code."
+              },
+              "message": {
+                "type": "string",
+                "description": "Human-readable feedback."
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Optional field or query parameter messages."
+              },
+              "request_id": {
+                "type": "string",
+                "description": "Matches the X-Request-ID response header."
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid JSON, product ID, or query parameters. Codes: invalid_json, invalid_id, invalid_query.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "invalid_id",
+                "message": "Product ID must be a positive integer.",
+                "request_id": "example-request-id"
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Product not found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "product_not_found",
+                "message": "Product not found. It may have been deleted.",
+                "request_id": "example-request-id"
+              }
+            }
+          }
+        }
+      },
+      "PayloadTooLarge": {
+        "description": "Request body exceeds 64 KiB.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "payload_too_large",
+                "message": "The request body must be 64 KiB or smaller.",
+                "request_id": "example-request-id"
+              }
+            }
+          }
+        }
+      },
+      "UnsupportedMediaType": {
+        "description": "Missing or unsupported Content-Type.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "unsupported_media_type",
+                "message": "Send a JSON body with Content-Type: application/json.",
+                "request_id": "example-request-id"
+              }
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "JSON object is valid but one or more fields are invalid.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "validation_error",
+                "message": "Please fix the highlighted fields.",
+                "details": {
+                  "name": "This field is required."
+                },
+                "request_id": "example-request-id"
+              }
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Unexpected server error. Implementation details are logged only on the server.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "internal_error",
+                "message": "Something went wrong. Please try again.",
+                "request_id": "example-request-id"
+              }
+            }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "Database unavailable.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "service_unavailable",
+                "message": "The database is unavailable. Please try again later.",
+                "request_id": "example-request-id"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

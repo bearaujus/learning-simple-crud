@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRUD lab · Learn by making requests</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="site-header wrap">
+    <a class="brand" href="/">crud<span>lab</span><span class="tag">LEARNING API</span></a>
+    <nav aria-label="Main navigation"><a href="/" aria-current="page">Playground</a><a href="/docs">API guide ↗</a></nav>
+  </header>
+  <main class="wrap">
+    <section class="intro">
+      <div><p class="eyebrow">SMALL REQUESTS. REAL SKILLS.</p><h1>Make a change.<br>See the response.</h1>
+        <p class="lead">A small product API for your first frontend. Create, read, update, and delete — then take the same requests into your own app.</p>
+        <div class="chips"><span>No API key</span><span>Real persistence</span><span>Plain JavaScript</span></div>
+      </div>
+      <aside class="start-card"><span class="step-number">01 / START HERE</span><h2>Your first request</h2>
+        <code>GET /products</code><p>The list below is a real API response. Create a product to get started, or try an invalid request to see how errors work.</p>
+        <button id="try-error" class="secondary" type="button">Try a validation error ↗</button>
+        <p class="fine">Changes are saved to this server’s database and shared by its connected clients.</p>
+      </aside>
+    </section>
+
+    <p id="notice" role="status" aria-live="polite"></p>
+    <section class="workspace" aria-label="Product workspace">
+      <section class="panel editor">
+        <div class="panel-heading"><div><p class="eyebrow" id="form-method">POST /products</p><h2 id="form-title">Create a product</h2></div><span class="dot"></span></div>
+        <form id="product-form">
+          <fieldset id="product-fields">
+            <label for="name">Name <span class="fine">required</span></label>
+            <input id="name" name="name" required maxlength="100" placeholder="e.g. Dotted notebook" aria-describedby="name-error">
+            <small id="name-error" class="field-error"></small>
+            <label for="price">Price <span class="fine">0–1,000,000</span></label>
+            <input id="price" name="price" type="number" required min="0" max="1000000" step="0.01" placeholder="4.50" aria-describedby="price-error">
+            <small id="price-error" class="field-error"></small>
+            <label for="description">Description <span class="fine">optional</span></label>
+            <textarea id="description" name="description" rows="3" maxlength="1000" placeholder="Tell us a little about it…" aria-describedby="description-error"></textarea>
+            <small id="description-error" class="field-error"></small>
+            <div class="actions"><button id="save" type="submit">Create product</button><button id="cancel" class="secondary" type="button" hidden>Cancel edit</button></div>
+          </fieldset>
+        </form>
+        <p class="fine">The server validates every write. Field errors appear here; the complete response appears below.</p>
+      </section>
+
+      <section class="panel inventory" aria-labelledby="inventory-title">
+        <div class="panel-heading"><div><p class="eyebrow">GET /products</p><h2 id="inventory-title">Your products <span id="total" class="count">0</span></h2></div><button id="refresh" class="secondary" type="button">Refresh</button></div>
+        <form id="search-form" class="search-bar" role="search">
+          <label class="sr-only" for="search">Search products</label><input id="search" placeholder="Search name or description" maxlength="100" type="search">
+          <label class="sr-only" for="sort">Sort products</label><select id="sort"><option value="id:asc">Oldest first</option><option value="id:desc">Newest first</option><option value="name:asc">Name A–Z</option><option value="price:asc">Price: low to high</option><option value="price:desc">Price: high to low</option></select>
+          <button class="secondary" type="submit">Apply</button>
+        </form>
+        <div id="products" aria-busy="true"><p class="empty">Loading products…</p></div>
+        <div class="pagination"><button id="previous" class="secondary" type="button" disabled>← Previous</button><span id="page-label" class="fine">Page 1</span><button id="next" class="secondary" type="button" disabled>Next →</button></div>
+      </section>
+    </section>
+
+    <section class="panel inspector" aria-labelledby="response-title">
+      <div class="panel-heading"><div><p class="eyebrow">UNDER THE HOOD</p><h2 id="response-title">Request & response</h2></div><span class="fine">Select a recent request to inspect it</span></div>
+      <div class="inspector-grid"><div id="history" class="request-history" aria-label="Recent requests"></div><div class="response-body"><p id="response-status" class="response-status">Waiting for a request</p><pre id="response-json" tabindex="0">Your response will appear here.</pre><details><summary>JavaScript fetch example</summary><pre id="fetch-example" tabindex="0"></pre></details></div></div>
+    </section>
+    <section class="learning-note"><span class="step-number">YOUR NEXT STEP</span><h2>Build your own view.</h2><p>Keep this API running, start your frontend on another port, and use <code id="api-url">http://localhost:8080/products</code>. The <a href="/docs">API guide</a> includes the response contract, a reusable fetch client, and practice exercises.</p></section>
+  </main>
+  <footer class="wrap">CRUD lab <span>A little backend. A lot to learn.</span><a href="/openapi.json">OpenAPI specification ↗</a></footer>
+</body>
+</html>

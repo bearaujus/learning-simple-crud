@@ -1,0 +1,477 @@
+{
+  "info": {
+    "_postman_id": "b1b72e18-687f-4b08-8e8e-716d9fcb3c10",
+    "name": "CRUD lab — Products API",
+    "description": "Go + SQLite learning API. Start with go run ./cmd/api and run the CRUD walkthrough folder in order. Creation captures product_id; only that new product is deleted. Expected errors are a separate folder. Responses use data/meta or error; DELETE returns 204.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"Request ID is present\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\")).to.be.a(\"string\").and.not.empty);",
+          "if (pm.response.code !== 204) {",
+          "  pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+          "  if (pm.response.code >= 400) {",
+          "    pm.test(\"Consistent error envelope\", () => {",
+          "      const error = pm.response.json().error;",
+          "      pm.expect(error.code).to.be.a(\"string\");",
+          "      pm.expect(error.message).to.be.a(\"string\");",
+          "      pm.expect(error.request_id).to.equal(pm.response.headers.get(\"X-Request-ID\"));",
+          "    });",
+          "  }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "CRUD walkthrough (run in order)",
+      "item": [
+        {
+          "name": "1. List products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products?page=1&limit=5"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"List and pagination\", () => { const body = pm.response.json(); pm.expect(body.data).to.be.an(\"array\"); pm.expect(body.meta.limit).to.equal(5); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2. Create a product and save its ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CRUD lab practice\",\n  \"price\": 4.5,\n  \"description\": \"Created by the Postman walkthrough.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.unset(\"product_id\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) pm.collectionVariables.set(\"product_id\", pm.response.json().data.id);",
+                  "pm.test(\"Location identifies new product\", () => pm.expect(pm.response.headers.get(\"Location\")).to.equal(\"/products/\" + pm.response.json().data.id));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "3. Read the created product",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products/{{product_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Correct product\", () => pm.expect(pm.response.json().data.id).to.equal(Number(pm.collectionVariables.get(\"product_id\"))));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "4. Replace all writable fields (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{product_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CRUD lab practice — updated\",\n  \"price\": 8.99,\n  \"description\": \"PUT sends a complete product form.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Replaced product\", () => pm.expect(pm.response.json().data.price).to.equal(8.99));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5. Change only price (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products/{{product_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Zero is valid and omitted fields survive\", () => { const p = pm.response.json().data; pm.expect(p.price).to.equal(0); pm.expect(p.name).to.equal(\"CRUD lab practice — updated\"); pm.expect(p.description).to.equal(\"PUT sends a complete product form.\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "6. Search and sort products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products?q=CRUD%20lab%20practice&sort=price&order=asc&limit=5"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Created product matches search\", () => pm.expect(pm.response.json().meta.total).to.be.at.least(1));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "7. Delete the created product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/products/{{product_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+                  "pm.test(\"204 has no body\", () => pm.expect(pm.response.text()).to.equal(\"\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "8. Confirm deletion (expected 404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products/{{product_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Missing product code\", () => pm.expect(pm.response.json().error.code).to.equal(\"product_not_found\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Learn error handling (expected failures)",
+      "item": [
+        {
+          "name": "422 — Field validation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"price\": -1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Field-level feedback\", () => { const details = pm.response.json().error.details; pm.expect(details).to.have.property(\"name\"); pm.expect(details).to.have.property(\"price\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "400 — Invalid ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products/not-a-number"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "400 — Invalid page",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/products?page=0"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "400 — Malformed JSON",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "415 — Missing JSON Content-Type",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/products"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 415\", () => pm.response.to.have.status(415));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "405 — Unsupported method",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test\",\n  \"price\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 405\", () => pm.response.to.have.status(405));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "404 — Unknown endpoint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/not-an-endpoint"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "response": []
+    }
+  ]
+}

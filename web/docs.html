@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API guide · CRUD lab</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="site-header wrap"><a class="brand" href="/">crud<span>lab</span><span class="tag">LEARNING API</span></a><nav aria-label="Main navigation"><a href="/">Playground</a><a href="/docs" aria-current="page">API guide ↗</a></nav></header>
+  <main class="wrap guide">
+    <p class="eyebrow">THE FRONTEND FIELD GUIDE</p>
+    <h1>Your UI. A real API.</h1>
+    <p class="lead">Run your frontend on its usual port and send requests to this server. No API key is needed. Products persist in the server’s SQLite database.</p>
+    <p><a href="/openapi.json">OpenAPI specification</a> · <a href="/api.js" download>Download the fetch client</a> · <a href="/">Try the playground</a></p>
+    <h2>1. Make your first request</h2>
+    <p>The default API base URL is <code>http://localhost:8080</code>. If you changed the server address, use that address instead. Local frontends can access it with the default CORS configuration.</p>
+    <pre tabindex="0">const response = await fetch("http://localhost:8080/products");
+const payload = await response.json();
+if (!response.ok) throw new Error(payload.error.message);
+
+console.log(payload.data); // An array, including when empty
+console.log(payload.meta); // page, limit, total, total_pages</pre>
+    <h2>2. Learn the routes</h2>
+    <div class="table-scroll"><table><thead><tr><th>Method</th><th>Endpoint</th><th>Result</th></tr></thead><tbody>
+      <tr><td>GET</td><td><code>/products</code></td><td>200 · List with pagination metadata</td></tr>
+      <tr><td>GET</td><td><code>/products/{id}</code></td><td>200 · One product</td></tr>
+      <tr><td>POST</td><td><code>/products</code></td><td>201 · Created product + Location header</td></tr>
+      <tr><td>PUT</td><td><code>/products/{id}</code></td><td>200 · Replace writable fields</td></tr>
+      <tr><td>PATCH</td><td><code>/products/{id}</code></td><td>200 · Change supplied fields only</td></tr>
+      <tr><td>DELETE</td><td><code>/products/{id}</code></td><td>204 · No response body</td></tr>
+      <tr><td>GET</td><td><code>/health</code></td><td>200 · Database is available</td></tr>
+    </tbody></table></div>
+    <p>Use the returned product ID, rather than assuming IDs start at 1. Unknown products return 404. Unsupported methods return 405 with an <code>Allow</code> header. GET routes also support HEAD; known routes support OPTIONS.</p>
+    <h2>3. Create, replace, or patch</h2>
+    <p>POST and PUT require <code>name</code> and <code>price</code>. The description defaults to an empty string. Send <code>Content-Type: application/json</code>.</p>
+    <pre tabindex="0">{
+  "name": "Notebook",
+  "price": 4.5,
+  "description": "A dotted notebook."
+}</pre>
+    <ul>
+      <li><strong>name:</strong> 1–100 Unicode characters after trimming whitespace.</li>
+      <li><strong>price:</strong> a JSON number from 0 to 1,000,000; at most two decimal places. Zero is valid.</li>
+      <li><strong>description:</strong> at most 1,000 Unicode characters after trimming. Send <code>""</code> to clear it.</li>
+      <li><strong>id:</strong> assigned by the server. Do not include it in request bodies.</li>
+    </ul>
+    <p>Unknown fields, incorrect types, and explicit <code>null</code> values are rejected. Bodies must be a single JSON object of at most 64 KiB. Field names are case sensitive.</p>
+    <p><strong>PUT replaces:</strong> send name and price; an omitted description is cleared. <strong>PATCH changes:</strong> send at least one writable field; omitted fields are preserved. A PATCH body is a partial JSON object such as <code>{ "price": 0 }</code>, not JSON Patch or JSON Merge Patch. Neither method creates a missing product.</p>
+    <p>Successful writes and single-product reads put the product inside <code>data</code>:</p>
+    <pre tabindex="0">{
+  "data": {
+    "id": 1,
+    "name": "Notebook",
+    "price": 4.5,
+    "description": "A dotted notebook."
+  }
+}</pre>
+    <h2>4. Give errors a useful home</h2>
+    <p>Malformed JSON, invalid IDs, and bad query parameters return 400. Invalid product fields return 422 with messages you can show beside inputs:</p>
+    <pre tabindex="0">{
+  "error": {
+    "code": "validation_error",
+    "message": "Please fix the highlighted fields.",
+    "details": { "price": "Must be between 0 and 1000000." },
+    "request_id": "example-request-id"
+  }
+}</pre>
+    <p>Use <code>error.code</code> for logic and <code>error.message</code> for feedback. Field messages live under <code>error.details</code>, which is optional. The request ID also appears in <code>X-Request-ID</code>.</p>
+    <div class="table-scroll"><table><thead><tr><th>Status</th><th>Code</th><th>Action</th></tr></thead><tbody>
+      <tr><td>400</td><td>invalid_json / invalid_id / invalid_query</td><td>Correct the request</td></tr>
+      <tr><td>404</td><td>product_not_found / route_not_found</td><td>Show a missing-item state or check the URL</td></tr>
+      <tr><td>405</td><td>method_not_allowed</td><td>Use a supported method</td></tr>
+      <tr><td>413</td><td>payload_too_large</td><td>Keep the body within 64 KiB</td></tr>
+      <tr><td>415</td><td>unsupported_media_type</td><td>Set the JSON Content-Type header</td></tr>
+      <tr><td>422</td><td>validation_error</td><td>Show field errors and keep entered values</td></tr>
+      <tr><td>500</td><td>internal_error</td><td>Show a retry action and keep the request ID</td></tr>
+      <tr><td>503</td><td>service_unavailable</td><td>The health check cannot reach the database</td></tr>
+    </tbody></table></div>
+    <h2>5. Search and paginate</h2>
+    <pre tabindex="0">const params = new URLSearchParams({
+  page: 1, limit: 5, q: "notebook", sort: "price", order: "asc"
+});
+const response = await fetch(`http://localhost:8080/products?${params}`);
+const payload = await response.json();
+if (!response.ok) throw new Error(payload.error.message);
+console.log(payload.data, payload.meta);</pre>
+    <p>Defaults: <code>page=1</code>, <code>limit=10</code>, <code>sort=id</code>, <code>order=asc</code>. Page accepts 1–1,000,000; limit accepts 1–100. Sort by id, name, or price; order is asc or desc. Search up to 100 trimmed characters in name and description. Search and name sorting ignore ASCII case; other language case folding is limited by SQLite. Unknown or repeated parameters return 400.</p>
+    <p>Metadata contains <code>page</code>, <code>limit</code>, <code>total</code>, and <code>total_pages</code>. With no matches, <code>data</code> is <code>[]</code> and total_pages is 0. A page beyond the available results is also an empty array. Tied sort values use ID ascending. Reset to page 1 when a filter changes.</p>
+    <h2>6. Reuse a small fetch client</h2>
+    <p>Download <a href="/api.js" download>api.js</a> into your frontend and import it from your application. Serve your frontend over HTTP to use JavaScript modules.</p>
+    <pre tabindex="0">import { createClient, APIError } from "./api.js";
+const api = createClient("http://localhost:8080");
+
+async function practice() {
+  try {
+    const { data: product } = await api.create({ name: "Pen", price: 2 });
+    await api.get(product.id);
+    await api.patch(product.id, { price: 0 });
+    await api.replace(product.id, { name: "Blue pen", price: 3, description: "" });
+    const { data, meta } = await api.list({ page: 1, limit: 5 });
+    console.log(data, meta);
+    await api.remove(product.id);
+  } catch (error) {
+    if (error instanceof APIError) {
+      console.error(error.message, error.details);
+    } else {
+      console.error("Check the API connection", error);
+    }
+  }
+}
+practice();</pre>
+    <p>The helper checks <code>response.ok</code>: fetch resolves even when HTTP returns 404 or 422. It also skips JSON parsing for 204, and passes an optional AbortSignal to list/get requests. See <a href="https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch">MDN’s Fetch guide</a> for the browser behavior.</p>
+    <h2>7. Practice the full experience</h2>
+    <ol>
+      <li>Build a list with loading, error, and empty states.</li>
+      <li>Add a form. Convert the price from a nonempty input string to a number, and show server field errors.</li>
+      <li>Disable Save while a request is pending; restore it in finally.</li>
+      <li>Add editing and deletion. Refresh after success and handle a product that another client deleted.</li>
+      <li>Add search and pagination. Cancel outdated reads so old results cannot overwrite new ones.</li>
+      <li>Use Network throttling or stop the server to practice connection errors and recovery.</li>
+    </ol>
+    <p>Render user content with textContent or escaped framework bindings. Do not retry POST automatically after a lost connection: a write may already have succeeded. Refresh before submitting again.</p>
+    <p class="fine">This is a local learning API with shared data and no authentication. CORS is not authorization. Public deployment needs access control and per-user isolation. Prices preserve the original REAL storage; exact money calculations should use minor units or decimals with an explicit currency.</p>
+  </main>
+  <footer class="wrap">CRUD lab <span>Read the response. Learn the pattern.</span><a href="/">Back to the playground ↗</a></footer>
+</body>
+</html>
