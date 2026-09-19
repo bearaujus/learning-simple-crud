@@ -2,6 +2,50 @@
 
 Start the API with `go run ./cmd/api` in one terminal. Open its playground at `http://localhost:8080` to check it is running. Your own frontend can run on a different port; the API enables CORS for local practice.
 
+## What you need to know first
+
+This guide uses **JavaScript modules** — the `import` and `export` keywords. Here is what matters for getting started:
+
+- Files that use `export` (like `api.js`) share their code with other files.
+- Files that use `import` (like your `app.js`) pull in that shared code.
+- The browser only understands `import`/`export` inside **modules**. You tell the browser a script is a module by writing `<script type="module">` instead of a plain `<script>` tag.
+- Modules also allow **top-level `await`** — you can write `await fetch(...)` directly without wrapping it in an `async function`.
+
+### Common beginner mistakes
+
+**Using `<script src="api.js">` without `type="module"`:**
+
+```html
+<!-- ❌ WRONG — will cause SyntaxError -->
+<script src="api.js"></script>
+<script src="app.js"></script>
+
+<!-- ✅ CORRECT — loads app.js as a module, which can import api.js -->
+<script type="module" src="app.js"></script>
+```
+
+Without `type="module"`, the browser treats the file as a regular script. The `export` keyword in `api.js` and the `import`/`await` keywords in `app.js` are not valid in regular scripts, producing:
+
+```
+Uncaught SyntaxError: Unexpected token 'export'
+Uncaught SyntaxError: await is only valid in async functions and the top level bodies of modules
+```
+
+**Opening the HTML file by double-clicking it (using `file://`):**
+
+Modules need to be served over HTTP. If you open your HTML file directly from your file manager, the browser uses the `file://` protocol, which blocks module loading for security reasons. You will see a CORS error in the console.
+
+Always use a local server:
+
+```sh
+# Any of these work — pick one:
+python -m http.server 5173          # Python (usually pre-installed)
+npx serve -p 5173                   # Node.js
+php -S localhost:5173                # PHP
+```
+
+Then visit `http://localhost:5173`.
+
 ## A working first page
 
 Create a separate frontend folder. Copy this repository's `web/api.js` into that folder, then create `index.html` with this content:
@@ -92,6 +136,9 @@ See [the complete playground](../web/app.js) for these patterns working together
 
 | Symptom | Check |
 | --- | --- |
+| `Unexpected token 'export'` | Load your script with `<script type="module">`, not a plain `<script>` tag. The `api.js` file uses ES module `export` syntax. |
+| `await is only valid in async functions` | Same fix: use `<script type="module">`. Top-level `await` only works inside modules. |
+| CORS error when opening `file:///...` | Serve your folder over HTTP (`python -m http.server 5173`). Do not open the HTML file by double-clicking it. |
 | `Failed to fetch` | Is the Go server running? Is the API URL correct? Check DevTools Network and any configured CORS allowlist. |
 | `415` | JSON writes need `Content-Type: application/json`. Use the client helper or set it yourself. |
 | `422` for a price | Send a number, not the string returned by an input. Read `error.details.price`. |

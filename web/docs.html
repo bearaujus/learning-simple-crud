@@ -14,13 +14,60 @@
     <p class="lead">Run your frontend on its usual port and send requests to this server. No API key is needed. Products persist in the server’s SQLite database.</p>
     <p><a href="/openapi.json">OpenAPI specification</a> · <a href="/api.js" download>Download the fetch client</a> · <a href="/">Try the playground</a></p>
     <h2>1. Make your first request</h2>
+    <aside class="start-card">
+      <span class="step-number">BEFORE YOU START</span>
+      <h3>Set up your frontend folder</h3>
+      <p>Create a new folder for your frontend. Inside it, create two files: <code>index.html</code> and <code>app.js</code>. Download <a href="/api.js" download>api.js</a> into the same folder. Your folder should look like this:</p>
+      <pre tabindex="0">my-frontend/
+├── index.html   ← your page
+├── app.js       ← your JavaScript
+└── api.js       ← download from this server</pre>
+      <p><strong>Serve over HTTP, not file://.</strong> Open a terminal in your folder and run:</p>
+      <pre tabindex="0">python -m http.server 5173</pre>
+      <p>Then visit <code>http://localhost:5173</code>. Double-clicking the HTML file uses <code>file://</code>, which blocks JavaScript modules in most browsers.</p>
+    </aside>
     <p>The default API base URL is <code>http://localhost:8080</code>. If you changed the server address, use that address instead. Local frontends can access it with the default CORS configuration.</p>
+    <p>Paste this into your <code>index.html</code> to see it work:</p>
+    <pre tabindex="0">&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+  &lt;head&gt;
+    &lt;meta charset="utf-8"&gt;
+    &lt;title&gt;My products&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;h1&gt;Products&lt;/h1&gt;
+    &lt;ul id="products"&gt;&lt;/ul&gt;
+    &lt;script type="module" src="app.js"&gt;&lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</pre>
+    <p>And paste this into your <code>app.js</code>:</p>
+    <pre tabindex="0">import { createClient } from "./api.js";
+
+const api = createClient("http://localhost:8080");
+
+const { data } = await api.list();
+const list = document.querySelector("#products");
+for (const product of data) {
+  const item = document.createElement("li");
+  item.textContent = `${product.name}: $${product.price.toFixed(2)}`;
+  list.appendChild(item);
+}
+console.log(data);</pre>
+    <p>Refresh the page. You should see the product list. If it is empty, create a product in the <a href="/">playground</a> first.</p>
+    <h3>Why <code>type="module"</code>?</h3>
+    <p>The <code>api.js</code> file uses <code>export</code> to share its code. Your <code>app.js</code> uses <code>import</code> to load it. These keywords only work inside JavaScript <strong>modules</strong>. You tell the browser a file is a module by writing <code>&lt;script type="module"&gt;</code> instead of a plain <code>&lt;script&gt;</code> tag. Without <code>type="module"</code>, you will see errors like:</p>
+    <pre tabindex="0">Uncaught SyntaxError: Unexpected token 'export'
+Uncaught SyntaxError: await is only valid in async functions and the top level bodies of modules</pre>
+    <p>Modules also allow <code>await</code> at the top level of a file, which is why the snippets above work without wrapping everything in an <code>async function</code>.</p>
+    <h3>Raw fetch (without the client helper)</h3>
+    <p>If you want to understand what happens under the hood, this is the equivalent using the browser's built-in <code>fetch</code> function:</p>
     <pre tabindex="0">const response = await fetch("http://localhost:8080/products");
 const payload = await response.json();
 if (!response.ok) throw new Error(payload.error.message);
 
 console.log(payload.data); // An array, including when empty
 console.log(payload.meta); // page, limit, total, total_pages</pre>
+    <p>This code still needs <code>type="module"</code> because of the top-level <code>await</code>. Put it inside a <code>&lt;script type="module"&gt;...&lt;/script&gt;</code> tag or a <code>.js</code> file loaded as a module.</p>
     <h2>2. Learn the routes</h2>
     <div class="table-scroll"><table><thead><tr><th>Method</th><th>Endpoint</th><th>Result</th></tr></thead><tbody>
       <tr><td>GET</td><td><code>/products</code></td><td>200 · List with pagination metadata</td></tr>
@@ -88,7 +135,7 @@ console.log(payload.data, payload.meta);</pre>
     <p>Defaults: <code>page=1</code>, <code>limit=10</code>, <code>sort=id</code>, <code>order=asc</code>. Page accepts 1–1,000,000; limit accepts 1–100. Sort by id, name, or price; order is asc or desc. Search up to 100 trimmed characters in name and description. Search and name sorting ignore ASCII case; other language case folding is limited by SQLite. Unknown or repeated parameters return 400.</p>
     <p>Metadata contains <code>page</code>, <code>limit</code>, <code>total</code>, and <code>total_pages</code>. With no matches, <code>data</code> is <code>[]</code> and total_pages is 0. A page beyond the available results is also an empty array. Tied sort values use ID ascending. Reset to page 1 when a filter changes.</p>
     <h2>6. Reuse a small fetch client</h2>
-    <p>Download <a href="/api.js" download>api.js</a> into your frontend and import it from your application. Serve your frontend over HTTP to use JavaScript modules.</p>
+    <p>Download <a href="/api.js" download>api.js</a> into your frontend folder (the same folder as your <code>index.html</code>). Load your script with <code>&lt;script type="module" src="app.js"&gt;</code> — the <code>type="module"</code> is required for <code>import</code> and <code>export</code> to work. Remember to serve over HTTP, not <code>file://</code>.</p>
     <pre tabindex="0">import { createClient, APIError } from "./api.js";
 const api = createClient("http://localhost:8080");
 
@@ -124,5 +171,19 @@ practice();</pre>
     <p class="fine">This is a local learning API with shared data and no authentication. CORS is not authorization. Public deployment needs access control and per-user isolation. Prices preserve the original REAL storage; exact money calculations should use minor units or decimals with an explicit currency.</p>
   </main>
   <footer class="wrap">CRUD lab <span>Read the response. Learn the pattern.</span><a href="/">Back to the playground ↗</a></footer>
+  <script>
+    // Replace http://localhost:8080 in code examples with the actual server origin.
+    // When deployed at e.g. https://learning-simple-crud.bearaujus.com, students
+    // see the correct URL to copy into their own frontend code.
+    const placeholder = "http://localhost:8080";
+    if (location.origin !== placeholder) {
+      for (const el of document.querySelectorAll("pre, code")) {
+        if (el.closest("pre") !== el && el.closest("pre")) continue; // skip <code> inside <pre>
+        if (el.textContent.includes(placeholder)) {
+          el.textContent = el.textContent.replaceAll(placeholder, location.origin);
+        }
+      }
+    }
+  </script>
 </body>
 </html>
